@@ -257,14 +257,26 @@ function picker() {
     btn('Показать варианты', 'choose()', 'primary') + '</section>';
 }
 
+// Утро — с 5:00 до 12:00 по времени телефона
+const isMorning = (date = new Date()) => date.getHours() >= 5 && date.getHours() < 12;
+
+// Вес в случайном порядке: идеи с полки ×2, утром зарядка ×3.
+// Зарядка не гарантирована, но выпадает заметно чаще.
+function weight(a, morning) {
+  let w = a.shelf ? 2 : 1;
+  if (morning && a.id.startsWith('charge-')) w *= 3;
+  return w;
+}
+
 function choose() {
   const mins = TIMES[pick.time][0];
   let cand = all().filter(a => a.min <= mins && a.energy <= pick.energy);
   // Простую версию не показываем рядом с полной — она доступна через «Ещё проще»
   const hidden = new Set(cand.map(a => a.simpler).filter(Boolean));
   cand = cand.filter(a => !hidden.has(a.id));
+  const morning = isMorning();
   queue = cand
-    .map(a => ({id: a.id, score: Math.random() * (a.shelf ? 2 : 1) + (a.cat === pick.want ? 4 : 0)}))
+    .map(a => ({id: a.id, score: Math.random() * weight(a, morning) + (a.cat === pick.want ? 4 : 0)}))
     .sort((x, y) => y.score - x.score)
     .map(x => x.id);
   cards = [];
