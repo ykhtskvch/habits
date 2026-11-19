@@ -260,11 +260,22 @@ function picker() {
 // Утро — с 5:00 до 12:00 по времени телефона
 const isMorning = (date = new Date()) => date.getHours() >= 5 && date.getHours() < 12;
 
-// Вес в случайном порядке: идеи с полки ×2, утром зарядка ×3.
-// Зарядка не гарантирована, но выпадает заметно чаще.
-function weight(a, morning) {
+// Занятия, показанные сегодня в двух последних попытках с карточками (текущая не считается)
+function recentShown() {
+  const dayStart = new Date();
+  dayStart.setHours(0, 0, 0, 0);
+  const prev = sessions
+    .filter(s => s !== session && s.openedAt >= dayStart.getTime() && s.shown && s.shown.length)
+    .slice(-2);
+  return new Set(prev.flatMap(s => s.shown));
+}
+
+// Вес в случайном порядке: идеи с полки ×2, утром зарядка ×3,
+// недавно показанные ×0,5 — чтобы подбор не повторял одно и то же.
+function weight(a, morning, recent) {
   let w = a.shelf ? 2 : 1;
   if (morning && a.id.startsWith('charge-')) w *= 3;
+  if (recent.has(a.id)) w *= 0.5;
   return w;
 }
 
@@ -275,8 +286,9 @@ function choose() {
   const hidden = new Set(cand.map(a => a.simpler).filter(Boolean));
   cand = cand.filter(a => !hidden.has(a.id));
   const morning = isMorning();
+  const recent = recentShown();
   queue = cand
-    .map(a => ({id: a.id, score: Math.random() * weight(a, morning) + (a.cat === pick.want ? 4 : 0)}))
+    .map(a => ({id: a.id, score: Math.random() * weight(a, morning, recent) + (a.cat === pick.want ? 4 : 0)}))
     .sort((x, y) => y.score - x.score)
     .map(x => x.id);
   cards = [];
