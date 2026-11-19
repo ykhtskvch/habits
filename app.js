@@ -1,27 +1,577 @@
-const app=document.querySelector('main'),read=k=>JSON.parse(localStorage.getItem(k)||'[]'),write=(k,v)=>localStorage.setItem(k,JSON.stringify(v)),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const rows=[
-['Зарядка 2 минуты',2,0,'Движение'],['Зарядка 5 минут',5,0,'Движение',0],['Утренняя зарядка',10,1,'Движение',1],['Подойти к окну',2,0,'Смена обстановки'],['Прогулка',15,0,'Смена обстановки',3],['Бег с ходьбой',30,2,'Смена обстановки',4],['Зал',45,2,'Движение'],['Аквааэробика',45,1,'Движение'],['Отправить голосовое',2,0,'Общение'],['Позвонить подруге',10,1,'Общение',8],['Поделиться постом',2,0,'Общение'],['Пропылесосить ковёр',5,1,'Видимый результат'],['Уборка',15,1,'Видимый результат',11],['Погладить одну вещь',5,0,'Видимый результат'],['Выбрать участок рамы',2,0,'Видимый результат'],['Покрасить раму',60,2,'Видимый результат',14],['Полежать одну песню',4,0,'Отдых'],['Послушать альбом',30,0,'Отдых',16],['Прочитать статью',10,0,'Отдых']];
-let ideas=rows.concat(read('ideas')),entries=read('journal'),link=null,queue=[],cards=[],energy=0,mins=5,want='',sport=5,zone=0,variant='ноги';
-const btn=(t,fn,primary=false)=>'<button class="'+(primary?'primary':'')+'" onclick="'+fn+'">'+esc(t)+'</button>',title=t=>'<h1>'+t+'</h1>',save=()=>write('journal',entries),opt=(a)=>a.map(x=>'<option>'+esc(x)+'</option>').join('');
-function home(){link=null;app.innerHTML=title('Что поможет мне сейчас?')+'<section class="hero"><div><h2>Что даст мне тренировка?</h2><p>Выбери занятие и коснись точки на карте тела.</p>'+btn('Открыть карту','bodyMap()',true)+'</div><img src="body.webp" alt="Карта тела"></section><section><h2>Не знаю, чем заняться</h2><p>Сколько сейчас сил и свободного времени?</p>'+btn('Подобрать занятие','picker()',true)+btn('Я залипла','scrollPage()')+'</section>'}
-function picker(){app.innerHTML=title('Подобрать занятие')+'<section><label>Силы <select id="en">'+opt(['Мало','Средне','Много'])+'</select></label><label>Время <select id="tm">'+opt(['2 минуты','5 минут','15 минут','30+ минут'])+'</select></label><label>Чего хочется? <select id="wt">'+opt(['Не знаю','Общение','Смена обстановки','Видимый результат','Отдых','Движение'])+'</select></label>'+btn('Показать варианты','choose()',true)+'</section>';tm.selectedIndex=1}
-function choose(){energy=en.selectedIndex;mins=[2,5,15,Infinity][tm.selectedIndex];want=wt.value;let ranked=ideas.map((r,i)=>({r,i,score:Math.random()*(i>=rows.length?2:1)+(r[3]===want?4:0)})).filter(x=>x.r[1]<=mins&&x.r[2]<=energy).sort((a,b)=>b.score-a.score);queue=ranked.filter(x=>!ranked.some(y=>y.r[4]===x.i)).map(x=>x.i);cards=[];while(cards.length<3&&queue.length){let idx=queue.findIndex(i=>!cards.some(j=>ideas[j][3]===ideas[i][3]));cards.push(queue.splice(Math.max(0,idx),1)[0])}results()}
-function results(){app.innerHTML=title('Можно попробовать')+cards.map((i,k)=>{let r=ideas[i];return '<article><small>'+esc(r[3])+' · '+r[1]+' мин</small><h3>'+esc(r[0])+'</h3>'+(r[5]?'<p>'+esc(r[5])+'</p>':'')+btn('Начать','start('+i+')',true)+(r[4]!=null?btn('Ещё проще','simpler('+k+')'):'')+btn('Заменить','swap('+k+')')+'</article>'}).join('')+(queue.length?'':'<p>Других вариантов с этими условиями пока нет.</p>')+btn('Изменить условия','picker()')+btn('Добавить идею','shelf()')}
-function simpler(k){cards[k]=ideas[cards[k]][4];results()}function swap(k){if(queue.length)cards[k]=queue.shift();else cards.splice(k,1);results()}
-const zones=['Сердце','Мышцы ног','Руки и спина'],points=[[53,25],[43,64],[36,36]];
-function bodyMap(){const txt=sport===6?['Во время подхода сердце снабжает работающие мышцы кровью.','В упражнениях на ноги нагрузка зависит от выбранного движения.','В тяговых упражнениях работают мышцы спины и рук.']:['При движении сердце доставляет больше крови работающим мышцам.',sport===7?'Ноги преодолевают сопротивление воды.':'Мышцы ног поочерёдно сокращаются и поддерживают шаг.','При движении рук вода создаёт сопротивление.'];let active=sport===6?(variant==='спина'?[0,2]:variant==='ноги'?[0,1]:[0,1,2]):sport===7?[0,1,2]:[0,1];if(!active.includes(zone))zone=active[0];app.innerHTML=title('Моё тело')+[5,6,7,4,2].map(i=>btn(ideas[i][0],'sport='+i+';zone=0;bodyMap()',sport===i)).join('')+(sport===6?'<p>'+['ноги','спина','всё тело'].map(v=>btn(v,"variant='"+v+"';bodyMap()",variant===v)).join('')+'</p>':'')+'<section><div class="map"><img src="body.webp" alt="Силуэт тела">'+active.map(i=>'<button class="spot" aria-label="'+zones[i]+'" style="left:'+points[i][0]+'%;top:'+points[i][1]+'%" onclick="zone='+i+';bodyMap()"></button>').join('')+'</div>'+active.map(i=>btn(zones[i],'zone='+i+';bodyMap()',zone===i)).join('')+'<h3>'+zones[zone]+'</h3><p>'+txt[zone]+'</p><p>После занятия умеренной интенсивности ты можешь почувствовать себя спокойнее. При регулярных занятиях может улучшаться физическая форма.</p><a href="https://www.cdc.gov/physical-activity-basics/health-benefits/adults.html" target="_blank" rel="noopener">О пользе движения · CDC</a></section>'+btn('Начать занятие','start('+sport+')',true)}
-function start(i){let e={id:crypto.randomUUID(),name:ideas[i][0],time:Date.now(),status:'Начала',min:ideas[i][1],link};entries.unshift(e);save();link=null;activePage(e)}
-function activePage(e){app.innerHTML=title(esc(e.name))+'<section><p>Занятие начато</p>'+btn('Готово',"finish('"+e.id+"')",true)+btn('К истории','historyPage()')+'</section>'}
-function finish(id){let e=entries.find(x=>x.id===id);e.status='Завершила';save();app.innerHTML=title('Готово')+'<p>'+esc(e.name)+'</p><section><h2>Как ты сейчас?</h2>'+['Лучше','Так же','Хуже','Пропустить'].map(v=>btn(v,"rate('"+id+"','"+v+"')")).join('')+'</section>'}
-function rate(id,v){entries.find(x=>x.id===id).feeling=v==='Пропустить'?'':v;save();historyPage()}
-function scrollPage(){app.innerHTML=title('Я залипла')+'<section><label>Где? <select id="src">'+opt(['Reels','X','YouTube','Другое'])+'</select></label><label>Сколько времени? <select id="dur">'+opt(['Не знаю','≈5 минут','≈15 минут','≈30 минут','Час или больше'])+'</select></label>'+btn('Сохранить и подобрать','logScroll(true)',true)+btn('Сохранить и закрыть','logScroll(false)')+'</section>'}
-function logScroll(next){link=crypto.randomUUID();entries.unshift({id:link,name:src.value,time:Date.now(),status:'Скроллинг',info:dur.value});save();next?picker():home()}
-function shelf(){app.innerHTML=title('Полка идей')+'<form onsubmit="addIdea(event)"><section><label>Идея <input name="name" required maxlength="120"></label><label>Минуты <input name="min" type="number" value="5" min="1" max="999" required></label><label>Силы <select name="energy">'+opt(['Мало','Средне','Много'])+'</select></label><label>Категория <select name="cat">'+opt(['Отдых','Движение','Общение','Смена обстановки','Видимый результат'])+'</select></label><label>Первый шаг или ссылка <input name="step"></label><button class="primary">Сохранить идею</button></section></form>'+ideas.slice(rows.length).map((r,k)=>'<article><h3>'+esc(r[0])+'</h3><p>'+(/^https?:\/\//i.test(r[5])?'<a target="_blank" rel="noopener" href="'+esc(r[5])+'">Открыть ссылку</a>':esc(r[5]))+'</p>'+btn('Начать','start('+(rows.length+k)+')')+'</article>').join('')}
-function addIdea(e){e.preventDefault();let f=e.target.elements;if(!f.name.value.trim())return;ideas.push([f.name.value.trim(),+f.min.value,f.energy.selectedIndex,f.cat.value,null,f.step.value]);write('ideas',ideas.slice(rows.length));shelf()}
-function historyPage(){app.innerHTML=title('История')+btn('+ Отметить сделанное','manual()')+(entries.length?'':'<p>Здесь появятся твои занятия и заметки о скроллинге.</p>')+entries.map(e=>'<article><small>'+new Date(e.time).toLocaleString('ru')+' · '+esc(e.status)+'</small><h3>'+esc(e.name)+'</h3><p>'+esc([e.info,e.feeling,e.note,e.link&&entries.find(x=>x.id===e.link)?.name].filter(Boolean).join(' · '))+'</p>'+(e.status==='Начала'?btn('Завершила',"finish('"+e.id+"')")+btn('Не получилось',"stopEntry('"+e.id+"')"):'')+btn('Изменить',"edit('"+e.id+"')")+btn('Удалить',"removeEntry('"+e.id+"')")+'</article>').join('')}
-function stopEntry(id){entries.find(e=>e.id===id).status='Не получилось';save();historyPage()}
-function removeEntry(id){if(confirm('Удалить запись?')){entries=entries.filter(e=>e.id!==id);save();historyPage()}}
-function manual(){edit('')}
-function edit(id){let e=entries.find(x=>x.id===id)||{};app.innerHTML=title(id?'Изменить запись':'Отметить сделанное')+'<form onsubmit="saveEdit(event,\''+id+'\')"><section><label>Название <input name="name" required value="'+esc(e.name)+'"></label><label>Длительность, мин <input name="min" type="number" min="0" value="'+esc(e.min)+'"></label><label>Заметка <textarea name="note">'+esc(e.note)+'</textarea></label><button class="primary">Сохранить</button></section></form>'}
-function saveEdit(ev,id){ev.preventDefault();let f=ev.target.elements,e=entries.find(x=>x.id===id);if(!e){e={id:crypto.randomUUID(),status:'Завершила',time:Date.now()};entries.unshift(e)}Object.assign(e,{name:f.name.value,min:f.min.value,note:f.note.value});save();historyPage()}
+'use strict';
+
+/* ---------- Утилиты ---------- */
+
+const app = document.getElementById('app');
+
+const store = {
+  get(key, fallback) {
+    try {
+      const value = JSON.parse(localStorage.getItem(key));
+      return value ?? fallback;
+    } catch (e) {
+      return fallback;
+    }
+  },
+  set(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* хранилище недоступно */ }
+  }
+};
+
+// crypto.randomUUID есть только в защищённом контексте (https или localhost).
+// При открытии с телефона по http://192.168.… его нет, поэтому нужен запасной вариант.
+const uid = () => (window.crypto && typeof crypto.randomUUID === 'function')
+  ? crypto.randomUUID()
+  : Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+
+// Вызов функции из onclick с безопасно экранированными аргументами
+const call = (fn, ...args) => esc(fn + '(' + args.map(a => JSON.stringify(a)).join(',') + ')');
+const btn = (text, action, cls = '') => '<button type="button" class="' + cls + '" onclick="' + action + '">' + esc(text) + '</button>';
+const title = t => '<h1>' + esc(t) + '</h1>';
+const pad = n => String(n).padStart(2, '0');
+const fmtTime = ts => { const d = new Date(ts); return pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+const toLocalInput = ts => { const d = new Date(ts); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+const isUrl = s => /^https?:\/\//i.test(s || '');
+
+/* ---------- Справочники ---------- */
+
+const ENERGY = ['Мало', 'Средне', 'Много'];
+const TIMES = [[2, '2 минуты'], [5, '5 минут'], [15, '15 минут'], [Infinity, '30+ минут']];
+const WANTS = ['Не знаю', 'Общение', 'Смена обстановки', 'Видимый результат', 'Отдых', 'Движение'];
+const CATS = ['Отдых', 'Движение', 'Общение', 'Смена обстановки', 'Видимый результат'];
+const DURATIONS = ['Не знаю', '≈5 минут', '≈15 минут', '≈30 минут', 'Час или больше'];
+const REASONS = ['Не то настроение', 'Всё слишком сложно', 'Нет сил ни на что', 'Другое'];
+const FEELINGS = ['Лучше', 'Так же', 'Хуже'];
+const STATUSES = ['Начала', 'Завершила', 'Не получилось'];
+
+// energy: 0 — мало сил, 1 — средне, 2 — много. simpler — id более простой версии.
+const BUILTIN = [
+  {id: 'charge-2', name: 'Зарядка 2 минуты', min: 2, energy: 0, cat: 'Движение'},
+  {id: 'charge-5', name: 'Зарядка 5 минут', min: 5, energy: 0, cat: 'Движение', simpler: 'charge-2'},
+  {id: 'charge-10', name: 'Утренняя зарядка', min: 10, energy: 1, cat: 'Движение', simpler: 'charge-5', map: 'charge'},
+  {id: 'window', name: 'Подойти к окну', min: 2, energy: 0, cat: 'Смена обстановки'},
+  {id: 'walk', name: 'Прогулка', min: 15, energy: 0, cat: 'Смена обстановки', simpler: 'window', map: 'walk'},
+  {id: 'run', name: 'Бег с ходьбой', min: 30, energy: 2, cat: 'Смена обстановки', simpler: 'walk', map: 'run'},
+  {id: 'gym', name: 'Зал', min: 45, energy: 2, cat: 'Движение', map: 'gym'},
+  {id: 'aqua', name: 'Аквааэробика', min: 45, energy: 1, cat: 'Движение', map: 'aqua'},
+  {id: 'voice', name: 'Отправить голосовое', min: 2, energy: 0, cat: 'Общение'},
+  {id: 'call', name: 'Позвонить подруге', min: 10, energy: 1, cat: 'Общение', simpler: 'voice'},
+  {id: 'post', name: 'Поделиться постом', min: 2, energy: 0, cat: 'Общение'},
+  {id: 'vacuum', name: 'Пропылесосить ковёр', min: 5, energy: 1, cat: 'Видимый результат'},
+  {id: 'clean', name: 'Уборка', min: 15, energy: 1, cat: 'Видимый результат', simpler: 'vacuum'},
+  {id: 'iron', name: 'Погладить одну вещь', min: 5, energy: 0, cat: 'Видимый результат'},
+  {id: 'frame-step', name: 'Выбрать участок рамы', min: 2, energy: 0, cat: 'Видимый результат'},
+  {id: 'frame', name: 'Покрасить раму', min: 60, energy: 2, cat: 'Видимый результат', simpler: 'frame-step'},
+  {id: 'song', name: 'Полежать одну песню', min: 4, energy: 0, cat: 'Отдых'},
+  {id: 'album', name: 'Послушать альбом', min: 30, energy: 0, cat: 'Отдых', simpler: 'song'},
+  {id: 'article', name: 'Прочитать статью', min: 10, energy: 0, cat: 'Отдых'}
+];
+
+/* ---------- Карта тела: области, описания и утверждения с источниками ---------- */
+
+const SOURCES = {
+  odphp: {
+    title: 'Physical Activity Guidelines for Americans, 2nd ed. (2018), гл. 2',
+    url: 'https://odphp.health.gov/sites/default/files/2019-09/Physical_Activity_Guidelines_2nd_edition.pdf'
+  }
+};
+
+// Утверждение показывается только с источником, условиями и периодом.
+// Формулировки нужно сверить со страницами источника перед реальным использованием.
+const CLAIMS = {
+  calm: {text: 'После занятия ты можешь почувствовать себя спокойнее', period: 'после занятия', cond: 'Умеренная или высокая интенсивность', src: 'odphp'},
+  bp: {text: 'В ближайшие часы давление может немного снизиться', period: 'после занятия', cond: 'Аэробная нагрузка умеренной или высокой интенсивности', src: 'odphp'},
+  heart: {text: 'Снижается риск болезней сердца и сосудов', period: 'при регулярных занятиях', cond: 'Около 150–300 минут умеренной аэробной нагрузки в неделю', src: 'odphp'},
+  muscle: {text: 'Задействованные мышцы становятся сильнее', period: 'при регулярных занятиях', cond: 'Силовые упражнения 2 и более дня в неделю', src: 'odphp'},
+  bone: {text: 'Нагрузки с ударом и сопротивлением укрепляют кости', period: 'при регулярных занятиях', cond: 'Бег, прыжки, силовые упражнения', src: 'odphp'},
+  water: {text: 'Аквааэробика — аэробная нагрузка умеренной интенсивности', period: 'во время занятия', cond: 'Обычный темп занятия', src: 'odphp'}
+};
+
+const ZONES = {heart: 'Сердце и лёгкие', legs: 'Ноги', arms: 'Руки', back: 'Спина', core: 'Корпус'};
+
+const MAP_ACTS = [['run', 'run'], ['gym', 'gym'], ['aqua', 'aqua'], ['walk', 'walk'], ['charge', 'charge-10']];
+const GYM_VARIANTS = ['ноги', 'спина', 'всё тело'];
+
+function mapZones(act, variant) {
+  const heartMove = {about: 'При движении сердце доставляет больше крови работающим мышцам.'};
+  const heartGym = {about: 'Во время подхода сердце снабжает работающие мышцы кровью.'};
+  const pull = 'В тяговых упражнениях работают мышцы спины и рук.';
+  switch (act) {
+    case 'run': return {
+      heart: {...heartMove, claims: ['calm', 'bp', 'heart']},
+      legs: {about: 'Мышцы ног поочерёдно сокращаются и поддерживают шаг.', claims: ['bone']}
+    };
+    case 'walk': return {
+      heart: {...heartMove, claims: ['calm', 'heart']},
+      legs: {about: 'Мышцы ног поддерживают шаг.', claims: []}
+    };
+    case 'charge': return {
+      heart: {about: 'Пульс немного учащается, тело разогревается.', claims: []},
+      arms: {about: 'Махи и круги руками разминают плечи.', claims: []},
+      legs: {about: 'Приседания и шаги на месте включают мышцы ног.', claims: []}
+    };
+    case 'aqua': return {
+      heart: {...heartMove, claims: ['water', 'calm', 'heart']},
+      arms: {about: 'При движении рук вода создаёт сопротивление.', claims: []},
+      legs: {about: 'Ноги преодолевают сопротивление воды.', claims: []}
+    };
+    case 'gym':
+      if (variant === 'спина') return {
+        heart: {...heartGym, claims: []},
+        back: {about: pull, claims: ['muscle']},
+        arms: {about: pull, claims: ['muscle']}
+      };
+      if (variant === 'всё тело') return {
+        heart: {...heartGym, claims: []},
+        legs: {about: 'В упражнениях на ноги нагрузка зависит от выбранного движения.', claims: ['muscle', 'bone']},
+        back: {about: pull, claims: ['muscle']},
+        arms: {about: pull, claims: ['muscle']},
+        core: {about: 'Мышцы корпуса удерживают положение тела в упражнениях.', claims: ['muscle']}
+      };
+      return {
+        heart: {...heartGym, claims: []},
+        legs: {about: 'В упражнениях на ноги нагрузка зависит от выбранного движения.', claims: ['muscle', 'bone']},
+        core: {about: 'Мышцы корпуса удерживают положение тела в упражнениях.', claims: ['muscle']}
+      };
+  }
+  return {};
+}
+
+function silhouette(zones, selected) {
+  const part = (zone, shape) => {
+    const on = !!zones[zone];
+    const cls = 'part' + (on ? ' on' : '') + (on && zone === 'heart' ? ' heart' : '') + (zone === selected ? ' sel' : '');
+    const attrs = on ? ' onclick="' + call('pickZone', zone) + '" role="button" tabindex="0" aria-label="' + ZONES[zone] + '"' : '';
+    return '<g class="' + cls + '"' + attrs + '>' + shape + '</g>';
+  };
+  const figure = (ox, view) =>
+    '<circle class="part" cx="' + (ox + 50) + '" cy="28" r="20"/>' +
+    '<rect class="part" x="' + (ox + 43) + '" y="46" width="14" height="12" rx="4"/>' +
+    part('arms', '<rect x="' + (ox + 4) + '" y="62" width="15" height="98" rx="7.5"/><rect x="' + (ox + 81) + '" y="62" width="15" height="98" rx="7.5"/>') +
+    (view === 'front'
+      ? part('heart', '<rect x="' + (ox + 23) + '" y="58" width="54" height="56" rx="16"/>') +
+        part('core', '<rect x="' + (ox + 25) + '" y="117" width="50" height="50" rx="13"/>')
+      : part('back', '<rect x="' + (ox + 23) + '" y="58" width="54" height="109" rx="16"/>')) +
+    part('legs', '<rect x="' + (ox + 27) + '" y="171" width="21" height="118" rx="10"/><rect x="' + (ox + 52) + '" y="171" width="21" height="118" rx="10"/>') +
+    '<text class="fig-label" x="' + (ox + 50) + '" y="308" text-anchor="middle">' + (view === 'front' ? 'спереди' : 'сзади') + '</text>';
+  return '<svg class="body-svg" viewBox="0 0 240 316" role="img" aria-label="Силуэт: подсвечены задействованные области">' +
+    figure(14, 'front') + figure(126, 'back') + '</svg>';
+}
+
+/* ---------- Данные ---------- */
+
+// Старые идеи хранились массивами [название, минуты, силы, категория, null, шаг]
+function loadIdeas() {
+  const raw = store.get('ideas', []);
+  let migrated = false;
+  const list = raw.map(r => {
+    if (!Array.isArray(r)) return r;
+    migrated = true;
+    return {id: 'idea-' + uid(), name: r[0], min: +r[1] || 5, energy: +r[2] || 0, cat: r[3] || 'Отдых', step: r[5] || '', shelf: true};
+  });
+  if (migrated) store.set('ideas', list);
+  return list;
+}
+
+let ideas = loadIdeas();
+let entries = store.get('journal', []);
+let sessions = store.get('sessions', []);
+sessions.forEach(s => { if (!s.outcome) s.outcome = 'closed'; });
+
+const all = () => BUILTIN.concat(ideas);
+const byId = id => all().find(a => a.id === id);
+const saveEntries = () => store.set('journal', entries);
+const saveSessions = () => store.set('sessions', sessions);
+const saveIdeas = () => store.set('ideas', ideas);
+
+let link = null;      // id эпизода «Я залипла», к которому привяжется следующее занятие
+let session = null;   // текущая попытка выбора (для замеров H1 и H2)
+let queue = [], cards = [];
+let pick = {energy: 0, time: 1, want: 'Не знаю'};
+let mapState = {act: 'run', variant: 'ноги', zone: null, from: 'home'};
+
+/* ---------- Попытки выбора ---------- */
+
+function openSession(entry) {
+  closeSession();
+  session = {id: uid(), entry, openedAt: Date.now(), filters: null, shown: [], chosenId: null, chosenAt: null, outcome: null, reason: null, helped: null, mapOpened: entry === 'map'};
+  sessions.push(session);
+  saveSessions();
+}
+
+function closeSession() {
+  if (session && !session.outcome) { session.outcome = 'closed'; saveSessions(); }
+  session = null;
+}
+
+window.addEventListener('pagehide', () => { if (session && !session.outcome) { session.outcome = 'closed'; saveSessions(); } });
+
+/* ---------- Главная ---------- */
+
+function home(notice) {
+  closeSession();
+  link = null;
+  app.innerHTML = title('Что поможет мне сейчас?') +
+    (notice ? '<p class="notice">' + esc(notice) + '</p>' : '') +
+    activeBanner() +
+    '<section class="hero"><div><h2>Что даст мне тренировка?</h2><p>Выбери занятие и коснись области на карте тела.</p>' +
+    btn('Открыть карту', 'openMap()', 'primary') + '</div><img src="body.webp" alt=""></section>' +
+    '<section><h2>Не знаю, чем заняться</h2><p>Сколько сейчас сил и свободного времени?</p>' +
+    btn('Подобрать занятие', 'startPicker()', 'primary') + btn('Я залипла', 'scrollPage()') + '</section>';
+}
+
+function activeBanner() {
+  const live = entries.filter(e => e.status === 'Начала' && Date.now() - e.time < 12 * 3600000);
+  return live.map(e => '<p class="notice">Идёт: <b>' + esc(e.name) + '</b> с ' + fmtTime(e.time) + ' ' +
+    btn('Продолжить', call('resume', e.id), 'primary') + '</p>').join('');
+}
+
+/* ---------- Подбор ---------- */
+
+function startPicker() {
+  openSession('pick');
+  picker();
+}
+
+function chipRow(label, key, options) {
+  return '<div class="field"><span class="lbl">' + label + '</span><div class="chips">' +
+    options.map(([value, text]) => btn(text, call('setPick', key, value), 'chip' + (pick[key] === value ? ' on' : ''))).join('') +
+    '</div></div>';
+}
+
+function setPick(key, value) { pick[key] = value; picker(); }
+
+function picker() {
+  app.innerHTML = title('Подобрать занятие') + '<section>' +
+    chipRow('Силы', 'energy', ENERGY.map((t, i) => [i, t])) +
+    chipRow('Время', 'time', TIMES.map((t, i) => [i, t[1]])) +
+    chipRow('Чего хочется?', 'want', WANTS.map(w => [w, w])) +
+    btn('Показать варианты', 'choose()', 'primary') + '</section>';
+}
+
+function choose() {
+  const mins = TIMES[pick.time][0];
+  let cand = all().filter(a => a.min <= mins && a.energy <= pick.energy);
+  // Простую версию не показываем рядом с полной — она доступна через «Ещё проще»
+  const hidden = new Set(cand.map(a => a.simpler).filter(Boolean));
+  cand = cand.filter(a => !hidden.has(a.id));
+  queue = cand
+    .map(a => ({id: a.id, score: Math.random() * (a.shelf ? 2 : 1) + (a.cat === pick.want ? 4 : 0)}))
+    .sort((x, y) => y.score - x.score)
+    .map(x => x.id);
+  cards = [];
+  while (cards.length < 3 && queue.length) {
+    const idx = queue.findIndex(id => !cards.some(c => byId(c).cat === byId(id).cat));
+    cards.push(queue.splice(Math.max(0, idx), 1)[0]);
+  }
+  if (session) { session.filters = {...pick, time: TIMES[pick.time][1]}; session.shown.push(...cards); saveSessions(); }
+  results();
+}
+
+function results() {
+  const list = cards.map((id, k) => {
+    const a = byId(id);
+    return '<article><small>' + esc(a.cat) + ' · ' + a.min + ' мин</small><h3>' + esc(a.name) + '</h3>' +
+      (a.step ? '<p>' + (isUrl(a.step) ? '<a target="_blank" rel="noopener" href="' + esc(a.step) + '">Открыть ссылку</a>' : esc(a.step)) + '</p>' : '') +
+      btn('Начать', call('start', a.id), 'primary') +
+      (a.simpler ? btn('Ещё проще', call('simpler', k)) : '') +
+      btn('Заменить', call('swap', k)) +
+      (a.map ? btn('Что даст?', call('mapFromCard', a.id)) : '') +
+      '</article>';
+  }).join('');
+  const empty = '<section><p><b>Варианты закончились.</b> Изменить время или силы?</p>' +
+    btn('Изменить условия', 'picker()', 'primary') + btn('Добавить идею', 'shelf()') + '</section>';
+  app.innerHTML = title('Можно попробовать') + list +
+    (cards.length ? '' : empty) +
+    (cards.length && !queue.length ? '<p class="muted">Других вариантов с этими условиями пока нет.</p>' : '') +
+    (cards.length ? btn('Изменить условия', 'picker()') : '') +
+    btn('Ничего не подошло', 'nothingFit()');
+}
+
+function simpler(k) {
+  const next = byId(cards[k]).simpler;
+  if (!next) return;
+  cards[k] = next;
+  queue = queue.filter(id => id !== next);
+  if (session) { session.shown.push(next); session.simplerTaps = (session.simplerTaps || 0) + 1; saveSessions(); }
+  results();
+}
+
+function swap(k) {
+  if (queue.length) {
+    const idx = queue.findIndex(id => !cards.some((c, j) => j !== k && byId(c).cat === byId(id).cat));
+    cards[k] = queue.splice(Math.max(0, idx), 1)[0];
+    if (session) { session.shown.push(cards[k]); saveSessions(); }
+  } else {
+    cards.splice(k, 1);
+  }
+  results();
+}
+
+function nothingFit() {
+  app.innerHTML = title('Ничего не подошло') +
+    '<section><p>Можно отметить причину — а можно и нет.</p>' +
+    REASONS.map(r => btn(r, call('closeAttempt', r))).join('') +
+    '<p>' + btn('Без причины', call('closeAttempt', '')) + '</p></section>';
+}
+
+function closeAttempt(reason) {
+  if (session) { session.outcome = 'nothing_fit'; session.reason = reason || null; saveSessions(); }
+  session = null;
+  home('Попытка сохранена.');
+}
+
+/* ---------- Занятие ---------- */
+
+function start(id, variant) {
+  const a = byId(id);
+  if (!a) return;
+  if (session && !session.chosenId) {
+    session.chosenId = id;
+    session.chosenAt = Date.now();
+    session.outcome = 'chosen';
+    saveSessions();
+  }
+  session = null;
+  const e = {id: uid(), kind: 'activity', activityId: a.id, name: a.name + (variant ? ' — ' + variant : ''), variant: variant || null,
+    time: Date.now(), status: 'Начала', min: a.min, link};
+  entries.unshift(e);
+  saveEntries();
+  link = null;
+  activePage(e);
+}
+
+function resume(id) {
+  const e = entries.find(x => x.id === id);
+  if (e) activePage(e);
+}
+
+function activePage(e) {
+  app.innerHTML = title(e.name) + '<section><p>Занятие начато в ' + fmtTime(e.time) + '. План — ' + e.min + ' мин, любой отрезок засчитывается.</p>' +
+    btn('Готово', call('finish', e.id), 'primary') + btn('Не получилось', call('stopEntry', e.id)) + btn('К истории', 'historyPage()') + '</section>';
+}
+
+function finish(id) {
+  const e = entries.find(x => x.id === id);
+  if (!e) return;
+  if (e.status === 'Завершила') { historyPage(); return; } // повторное нажатие не дублирует запись
+  e.status = 'Завершила';
+  e.completedAt = Date.now();
+  const actual = Math.round((e.completedAt - e.time) / 60000);
+  e.actualMin = actual >= 1 ? actual : null;
+  saveEntries();
+  app.innerHTML = title('Готово') + '<p>' + esc(e.name) + '</p><section><h2>Как ты сейчас — по сравнению с тем, что было до?</h2>' +
+    FEELINGS.map(v => btn(v, call('rate', id, v))).join('') + btn('Пропустить', call('rate', id, '')) + '</section>';
+}
+
+function rate(id, value) {
+  const e = entries.find(x => x.id === id);
+  if (e) { e.feeling = value; saveEntries(); }
+  historyPage();
+}
+
+function stopEntry(id) {
+  const e = entries.find(x => x.id === id);
+  if (e) { e.status = 'Не получилось'; saveEntries(); }
+  historyPage();
+}
+
+/* ---------- Карта тела ---------- */
+
+function openMap() {
+  openSession('map');
+  mapState = {act: 'run', variant: 'ноги', zone: null, from: 'home'};
+  bodyMap();
+}
+
+function mapFromCard(id) {
+  if (session) { session.mapOpened = true; saveSessions(); }
+  mapState = {act: byId(id).map, variant: 'ноги', zone: null, from: 'results'};
+  bodyMap();
+}
+
+function setMap(key, value) { mapState[key] = value; mapState.zone = null; bodyMap(); }
+function pickZone(zone) { mapState.zone = zone; bodyMap(); }
+
+function bodyMap() {
+  const zones = mapZones(mapState.act, mapState.variant);
+  const keys = Object.keys(zones);
+  if (!zones[mapState.zone]) mapState.zone = keys[0];
+  const z = zones[mapState.zone];
+  const actName = byId(MAP_ACTS.find(m => m[0] === mapState.act)[1]).name;
+  const claims = z.claims.map(id => {
+    const c = CLAIMS[id], s = SOURCES[c.src];
+    return '<div class="claim"><small class="period">' + esc(c.period) + '</small><p><b>' + esc(c.text) + '</b></p>' +
+      '<details><summary>Источник и условия</summary><p class="muted">Условия: ' + esc(c.cond) + '.</p>' +
+      '<p><a href="' + esc(s.url) + '" target="_blank" rel="noopener">' + esc(s.title) + '</a></p></details></div>';
+  }).join('');
+  app.innerHTML = title('Моё тело') +
+    (mapState.from === 'results' ? '<p>' + btn('← К вариантам', 'results()') + '</p>' : '') +
+    '<div class="chips">' + MAP_ACTS.map(([key, id]) => btn(byId(id).name, call('setMap', 'act', key), 'chip' + (mapState.act === key ? ' on' : ''))).join('') + '</div>' +
+    (mapState.act === 'gym' ? '<div class="chips">' + GYM_VARIANTS.map(v => btn(v, call('setMap', 'variant', v), 'chip' + (mapState.variant === v ? ' on' : ''))).join('') + '</div>' : '') +
+    '<section><div class="map">' + silhouette(zones, mapState.zone) + '</div>' +
+    '<div class="chips">' + keys.map(k => btn(ZONES[k], call('pickZone', k), 'chip' + (mapState.zone === k ? ' on' : ''))).join('') + '</div>' +
+    '<h3>' + ZONES[mapState.zone] + '</h3><p>' + esc(z.about) + '</p>' + claims + '</section>' +
+    btn('Начать: ' + actName + (mapState.act === 'gym' ? ' — ' + mapState.variant : ''), 'helpedPage()', 'primary');
+}
+
+function helpedPage() {
+  app.innerHTML = title('Помогло ли это мне решиться?') + '<section><p>Ответ необязателен.</p>' +
+    [['yes', 'Да'], ['no', 'Нет'], ['unsure', 'Не знаю']].map(([v, t]) => btn(t, call('helped', v))).join('') +
+    '<p>' + btn('Пропустить', call('helped', '')) + '</p></section>';
+}
+
+function helped(value) {
+  if (session && value) { session.helped = value; saveSessions(); }
+  const id = MAP_ACTS.find(m => m[0] === mapState.act)[1];
+  start(id, mapState.act === 'gym' ? mapState.variant : null);
+}
+
+/* ---------- Я залипла ---------- */
+
+function scrollPage() {
+  openSession('scroll');
+  app.innerHTML = title('Я залипла') + '<section>' +
+    '<label>Где? <select id="scroll-src">' + ['Reels', 'X', 'YouTube', 'Другое'].map(x => '<option>' + x + '</option>').join('') + '</select></label>' +
+    '<label>Сколько времени? <select id="scroll-dur">' + DURATIONS.map(x => '<option>' + x + '</option>').join('') + '</select></label>' +
+    btn('Сохранить и подобрать', 'logScroll(true)', 'primary') + btn('Сохранить и закрыть', 'logScroll(false)') + '</section>';
+}
+
+function logScroll(next) {
+  const e = {id: uid(), kind: 'scroll', name: document.getElementById('scroll-src').value, time: Date.now(), status: 'Скроллинг', info: document.getElementById('scroll-dur').value};
+  entries.unshift(e);
+  saveEntries();
+  if (next) { link = e.id; picker(); } // попытка продолжается в подборе
+  else home('Эпизод сохранён.');
+}
+
+/* ---------- Полка идей ---------- */
+
+function shelf() {
+  closeSession();
+  link = null;
+  app.innerHTML = title('Полка идей') +
+    '<form onsubmit="addIdea(event)"><section>' +
+    '<label>Идея <input name="name" required maxlength="120"></label>' +
+    '<label>Минуты <input name="min" type="number" value="5" min="1" max="999" required></label>' +
+    '<label>Силы <select name="energy">' + ENERGY.map(x => '<option>' + x + '</option>').join('') + '</select></label>' +
+    '<label>Категория <select name="cat">' + CATS.map(x => '<option>' + x + '</option>').join('') + '</select></label>' +
+    '<label>Первый шаг или ссылка <input name="step"></label>' +
+    '<button class="primary">Сохранить идею</button></section></form>' +
+    ideas.map(a => '<article><small>' + esc(a.cat) + ' · ' + a.min + ' мин · ' + ENERGY[a.energy].toLowerCase() + '</small><h3>' + esc(a.name) + '</h3>' +
+      (a.step ? '<p>' + (isUrl(a.step) ? '<a target="_blank" rel="noopener" href="' + esc(a.step) + '">Открыть ссылку</a>' : esc(a.step)) + '</p>' : '') +
+      btn('Начать', call('start', a.id)) + btn('Убрать', call('removeIdea', a.id)) + '</article>').join('');
+}
+
+function addIdea(ev) {
+  ev.preventDefault();
+  const f = ev.target.elements;
+  const name = f.name.value.trim();
+  if (!name) return;
+  ideas.push({id: 'idea-' + uid(), name, min: +f.min.value || 5, energy: f.energy.selectedIndex, cat: f.cat.value, step: f.step.value.trim(), shelf: true});
+  saveIdeas();
+  shelf();
+}
+
+function removeIdea(id) {
+  if (confirm('Убрать идею с полки?')) { ideas = ideas.filter(a => a.id !== id); saveIdeas(); shelf(); }
+}
+
+/* ---------- История ---------- */
+
+function historyPage() {
+  closeSession();
+  link = null;
+  app.innerHTML = title('История') + btn('+ Отметить сделанное', 'manual()', 'primary') +
+    (entries.length ? '' : '<p>Здесь появятся твои занятия и заметки о скроллинге.</p>') +
+    entries.map(e => {
+      const linked = e.link && entries.find(x => x.id === e.link);
+      const old = e.status === 'Начала' && Date.now() - e.time >= 12 * 3600000;
+      const dur = e.actualMin ? e.actualMin + ' мин' : (e.min && e.status === 'Завершила' ? '≈' + e.min + ' мин' : '');
+      const details = [e.info, dur, e.feeling, e.status === 'Завершила' && !e.feeling ? 'без оценки' : '', e.note, linked ? 'после: ' + linked.name : ''].filter(Boolean).join(' · ');
+      return '<article><small>' + new Date(e.time).toLocaleString('ru') + ' · ' + esc(e.status) + '</small><h3>' + esc(e.name) + '</h3>' +
+        (details ? '<p>' + esc(details) + '</p>' : '') +
+        (old ? '<p class="muted">Начато больше 12 часов назад.</p>' : '') +
+        (e.status === 'Начала' ? btn('Завершила', call('finish', e.id)) + btn('Не получилось', call('stopEntry', e.id)) : '') +
+        btn('Изменить', call('edit', e.id)) + btn('Удалить', call('removeEntry', e.id)) + '</article>';
+    }).join('');
+}
+
+function removeEntry(id) {
+  if (confirm('Удалить запись?')) { entries = entries.filter(e => e.id !== id); saveEntries(); historyPage(); }
+}
+
+function manual() { edit(''); }
+
+function edit(id) {
+  const e = entries.find(x => x.id === id) || {status: 'Завершила', time: Date.now()};
+  const isScroll = e.status === 'Скроллинг';
+  const sel = (name, opts, cur) => '<select name="' + name + '">' + opts.map(([v, t]) => '<option value="' + esc(v) + '"' + (v === cur ? ' selected' : '') + '>' + esc(t) + '</option>').join('') + '</select>';
+  app.innerHTML = title(id ? 'Изменить запись' : 'Отметить сделанное') +
+    '<form onsubmit="saveEdit(event,' + esc(JSON.stringify(id)) + ')"><section>' +
+    '<label>Название <input name="name" required value="' + esc(e.name) + '"></label>' +
+    '<label>Когда <input name="time" type="datetime-local" value="' + toLocalInput(e.time) + '"></label>' +
+    (isScroll
+      ? '<label>Сколько времени ' + sel('info', DURATIONS.map(d => [d, d]), e.info) + '</label>'
+      : '<label>Длительность, мин <input name="min" type="number" min="0" value="' + esc(e.actualMin || e.min) + '"></label>' +
+        '<label>Статус ' + sel('status', STATUSES.map(s => [s, s]), e.status) + '</label>' +
+        '<label>Самочувствие ' + sel('feeling', [['', 'без оценки']].concat(FEELINGS.map(f => [f, f])), e.feeling || '') + '</label>') +
+    '<label>Заметка <textarea name="note">' + esc(e.note) + '</textarea></label>' +
+    '<button class="primary">Сохранить</button>' + btn('Отмена', 'historyPage()') + '</section></form>';
+}
+
+function saveEdit(ev, id) {
+  ev.preventDefault();
+  const f = ev.target.elements;
+  let e = entries.find(x => x.id === id);
+  if (!e) { e = {id: uid(), kind: 'activity', status: 'Завершила'}; entries.unshift(e); }
+  e.name = f.name.value.trim() || e.name;
+  const t = new Date(f.time.value).getTime();
+  e.time = isNaN(t) ? (e.time || Date.now()) : t;
+  e.note = f.note.value;
+  if (f.info) e.info = f.info.value;
+  if (f.min) {
+    const m = parseInt(f.min.value, 10);
+    e.actualMin = m > 0 ? m : null;
+    e.status = f.status.value;
+    e.feeling = f.feeling.value;
+    if (e.status === 'Завершила' && !e.completedAt) e.completedAt = Date.now();
+  }
+  entries.sort((a, b) => b.time - a.time);
+  saveEntries();
+  historyPage();
+}
+
+/* ---------- Проверка гипотез ---------- */
+
+function report() {
+  closeSession();
+  link = null;
+  const h1 = sessions.filter(s => s.entry === 'pick' || s.entry === 'scroll').slice(-5).reverse();
+  const fast = h1.filter(s => s.outcome === 'chosen' && s.chosenAt - s.openedAt < 60000).length;
+  const answers = sessions.filter(s => s.helped);
+  const count = v => answers.filter(s => s.helped === v).length;
+  const mapOpens = sessions.filter(s => s.mapOpened).length;
+  const row = s => {
+    let result;
+    if (s.outcome === 'chosen') {
+      const sec = Math.round((s.chosenAt - s.openedAt) / 1000);
+      result = sec < 60 ? '<b>' + sec + ' с</b>' : Math.floor(sec / 60) + ' мин ' + (sec % 60) + ' с';
+    } else if (s.outcome === 'nothing_fit') {
+      result = 'ничего не подошло' + (s.reason ? ' · ' + esc(s.reason.toLowerCase()) : '');
+    } else {
+      result = 'без выбора';
+    }
+    return '<tr><td>' + new Date(s.openedAt).toLocaleString('ru', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'}) +
+      ' · ' + (s.entry === 'scroll' ? 'после залипания' : 'подбор') + '</td><td>' + result + '</td></tr>';
+  };
+  app.innerHTML = title('Проверка') +
+    '<section><h2>Выбор меньше чем за минуту</h2><p class="big">' + fast + ' из ' + (h1.length || 5) + '</p><p class="muted">Цель — 4 из 5. Считаются подбор и «Я залипла», время пишется само.</p>' +
+    (h1.length ? '<table>' + h1.map(row).join('') + '</table>' : '<p>Попыток пока нет.</p>') + '</section>' +
+    '<section><h2>Карта помогла решиться</h2><p class="muted">Карту открывали ' + mapOpens + ' раз. Время на карте не учитывается.</p>' +
+    '<p>Да — ' + count('yes') + ' · Нет — ' + count('no') + ' · Не знаю — ' + count('unsure') + '</p></section>';
+}
+
 home();
