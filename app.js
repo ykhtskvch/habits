@@ -362,12 +362,21 @@ function activePage(e) {
 function finish(id) {
   const e = entries.find(x => x.id === id);
   if (!e) return;
-  if (e.status === 'Завершила') { historyPage(); return; } // повторное нажатие не дублирует запись
+  if (e.status === 'Завершила') {
+    // Повторное нажатие не дублирует запись. Пока оценки нет (даже пропуска), остаёмся на экране оценки.
+    if (e.feeling === undefined) ratePage(e); else historyPage();
+    return;
+  }
   e.status = 'Завершила';
   e.completedAt = Date.now();
   const actual = Math.round((e.completedAt - e.time) / 60000);
   e.actualMin = actual >= 1 ? actual : null;
   saveEntries();
+  ratePage(e);
+}
+
+function ratePage(e) {
+  const id = e.id;
   app.innerHTML = title('Готово') + '<p>' + esc(e.name) + '</p><section><h2>Как ты сейчас — по сравнению с тем, что было до?</h2>' +
     FEELINGS.map(v => btn(v, call('rate', id, v))).join('') + btn('Пропустить', call('rate', id, '')) + '</section>';
 }
@@ -522,7 +531,8 @@ function edit(id) {
     '<label>Когда <input name="time" type="datetime-local" value="' + toLocalInput(e.time) + '"></label>' +
     (isScroll
       ? '<label>Сколько времени ' + sel('info', DURATIONS.map(d => [d, d]), e.info) + '</label>'
-      : '<label>Длительность, мин <input name="min" type="number" min="0" value="' + esc(e.actualMin || e.min) + '"></label>' +
+      : '<label>Фактическая длительность, мин <input name="min" type="number" min="0" value="' + esc(e.actualMin || '') + '"' +
+        (e.min ? ' placeholder="по плану ' + esc(e.min) + '"' : '') + '></label>' +
         '<label>Статус ' + sel('status', STATUSES.map(s => [s, s]), e.status) + '</label>' +
         '<label>Самочувствие ' + sel('feeling', [['', 'без оценки']].concat(FEELINGS.map(f => [f, f])), e.feeling || '') + '</label>') +
     '<label>Заметка <textarea name="note">' + esc(e.note) + '</textarea></label>' +
